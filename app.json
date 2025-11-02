@@ -1,0 +1,54 @@
+{
+  "expo": {
+    "name": "MissOdoraApp-New",
+    "slug": "MissOdoraApp-New",
+    "version": "1.0.2",
+    "orientation": "portrait",
+    "icon": "./assets/MissOdoraLogo.png",
+    "userInterfaceStyle": "light",
+    "splash": {
+      "image": "./assets/splash.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#ffffff"
+    },
+    "assetBundlePatterns": [
+      "**/*"
+    ],
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "y",
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false
+      }
+    },
+    "android": {
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/logo.png",
+        "backgroundColor": "#ffffff"
+      },
+      "package": "com.salssa.MissOdoraAppNew",
+
+      // 👇 AJOUTE CETTE LIGNE
+      "versionCode": 1
+    },
+    "web": {
+      "favicon": "./assets/favicon.png"
+    },
+    "extra": {
+      "eas": {
+        "projectId": "e7ac90f1-034a-4c68-83fc-080c8606b6fc"
+      }
+    },
+    "plugins": [
+      "expo-mail-composer",
+      "expo-font"
+    ],
+    "runtimeVersion": {
+      "policy": "appVersion"
+    },
+    "updates": {
+      "url": "https://u.expo.dev/e7ac90f1-034a-4c68-83fc-080c8606b6fc",
+      "fallbackToCacheTimeout": 0
+    }
+  }
+}
