@@ -2,7 +2,7 @@
   "expo": {
     "name": "MissOdoraApp-New",
     "slug": "MissOdoraApp-New",
-    "version": "1.0.2",
+    "version": "1.0.3",
     "orientation": "portrait",
     "icon": "./assets/MissOdoraLogo.png",
     "userInterfaceStyle": "light",
@@ -29,7 +29,7 @@
       "package": "com.salssa.MissOdoraAppNew",
 
       // 👇 AJOUTE CETTE LIGNE
-      "versionCode": 1
+      "versionCode": 3
     },
     "web": {
       "favicon": "./assets/favicon.png"

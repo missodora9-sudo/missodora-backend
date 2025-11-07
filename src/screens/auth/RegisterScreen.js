@@ -9,7 +9,7 @@ import { useAuth } from '../../../context/AuthContext';
 
 export default function RegisterScreen({ navigation, route }) {
   const { register } = useAuth();
-  const commande = route.params?.commande; // Commande depuis PaiementScreen
+  const commande = route.params?.commande;
   const returnTo = route.params?.returnTo;
 
   const [step, setStep] = useState(1);
@@ -18,7 +18,7 @@ export default function RegisterScreen({ navigation, route }) {
     nom: '',
     email: '',
     telephone: '',
-    adresse: '',     // Champs adresse ajoutés
+    adresse: '',
     ville: '',
     codePostal: '',
     password: '',
@@ -41,30 +41,31 @@ export default function RegisterScreen({ navigation, route }) {
     return out;
   };
 
+  // --- Validation des étapes ---
   const validateStep = () => {
     const e = {};
     if (step === 1) {
       if (!form.prenom.trim()) e.prenom = 'Prénom requis';
-      if (!form.email.trim() || !/^[\w.-]+@[\w.-]+\.[A-Za-z]{2,6}$/.test(form.email))
-        e.email = 'Email invalide';
+      if (!form.nom.trim()) e.nom = 'Nom requis';
+      if (!form.telephone.trim()) e.telephone = 'Téléphone requis';
+      if (!/^[0-9\s+]{8,}$/.test(form.telephone)) e.telephone = 'Numéro de téléphone invalide';
+      if (!form.email.trim() || !/^[\w.-]+@[\w.-]+\.[A-Za-z]{2,6}$/.test(form.email)) e.email = 'Email invalide';
     }
-    if (step === 2) { // Validation des champs adresse
+    if (step === 2) {
       if (!form.adresse.trim()) e.adresse = 'Adresse requise';
       if (!form.ville.trim()) e.ville = 'Ville requise';
-      if (!/^\d{5}$/.test(form.codePostal)) e.codePostal = 'Code postal invalide';
+      if (!form.codePostal.trim()) e.codePostal = 'Code postal requis';
+      else if (!/^\d{5}$/.test(form.codePostal)) e.codePostal = 'Code postal invalide';
     }
     if (step === 3) {
       if (form.password.length < 8) e.password = '8 caractères minimum';
-      if (form.password !== form.passwordConfirm)
-        e.passwordConfirm = 'Les mots de passe ne correspondent pas';
+      if (form.password !== form.passwordConfirm) e.passwordConfirm = 'Les mots de passe ne correspondent pas';
     }
     setErrors(e);
     return Object.keys(e).length === 0;
   };
 
-  const nextStep = () => {
-    if (validateStep()) setStep(step + 1);
-  };
+  const nextStep = () => { if (validateStep()) setStep(step + 1); };
   const prevStep = () => setStep(step - 1);
 
   const handleRegister = async () => {
@@ -75,7 +76,7 @@ export default function RegisterScreen({ navigation, route }) {
         form.email.trim(),
         form.password,
         form.prenom.trim(),
-        form.nom.trim(),
+        form.nom,
         form.telephone.trim(),
         {
           adresse: form.adresse.trim(),
@@ -88,11 +89,11 @@ export default function RegisterScreen({ navigation, route }) {
         Animated.timing(successAnim, { toValue: 1, duration: 400, useNativeDriver: true }),
         Animated.timing(successAnim, { toValue: 0, duration: 600, delay: 1000, useNativeDriver: true }),
       ]).start(() => {
-        // Retour vers Paiement si l'utilisateur vient de l'écran paiement
+        // 🔹 Redirection après inscription
         if (returnTo === 'Paiement' && commande) {
           navigation.replace('Paiement', { commande });
         } else {
-          navigation.reset({ index: 0, routes: [{ name: 'Marques' }] });
+          navigation.reset({ index: 0, routes: [{ name: 'Accueil' }] });
         }
       });
     } catch (err) {
@@ -134,11 +135,12 @@ export default function RegisterScreen({ navigation, route }) {
                 {errors.prenom && <Text style={styles.error}>{errors.prenom}</Text>}
 
                 <TextInput
-                  style={styles.input}
-                  placeholder="Nom"
+                  style={[styles.input, errors.nom && styles.inputError]}
+                  placeholder="Nom *"
                   value={form.nom}
                   onChangeText={(t) => setForm({ ...form, nom: t })}
                 />
+                {errors.nom && <Text style={styles.error}>{errors.nom}</Text>}
 
                 <TextInput
                   style={[styles.input, errors.email && styles.inputError]}
@@ -151,13 +153,14 @@ export default function RegisterScreen({ navigation, route }) {
                 {errors.email && <Text style={styles.error}>{errors.email}</Text>}
 
                 <TextInput
-                  style={styles.input}
-                  placeholder="Téléphone"
+                  style={[styles.input, errors.telephone && styles.inputError]}
+                  placeholder="Téléphone *"
                   keyboardType="phone-pad"
                   value={form.telephone}
                   onChangeText={(t) => setForm({ ...form, telephone: phoneMask(t) })}
                   maxLength={14}
                 />
+                {errors.telephone && <Text style={styles.error}>{errors.telephone}</Text>}
               </>
             )}
 

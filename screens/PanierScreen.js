@@ -6,30 +6,52 @@ import { useNavigation } from '@react-navigation/native';
 
 export default function PanierScreen() {
   const { panier, total, viderPanier, incrementQuantity, decrementQuantity } = usePanier();
-  const { ajouterCommande } = useCommandes();
+  const { ajouterCommande, mettreAJourCommande, getCommandesEnAttente } = useCommandes();
   const navigation = useNavigation();
 
-  // --- Créer la commande ---
-  const handleCommander = () => {
+  // --- Créer ou fusionner la commande ---
+  const handleCommander = async () => {
     if (panier.length === 0) {
       Alert.alert('Votre panier est vide', 'Ajoutez des produits avant de commander.');
       return;
     }
 
-    const nouvelleCommande = {
-      id: Date.now().toString(),
-      date: new Date().toISOString(),
-      articles: panier,
-      total,
-      statut: 'En attente de paiement',
-      adresseLivraison: {
-        adresse: 'Non renseignée',
-        codePostal: '',
-        ville: '',
-      },
-    };
+    const commandesEnAttente = getCommandesEnAttente();
+    let commandeActive = commandesEnAttente[0]; // On prend la première commande en attente, s'il y en a une
 
-    ajouterCommande(nouvelleCommande);
+    if (commandeActive) {
+      // Fusionner les nouveaux articles dans la commande existante
+      const articlesMisAJour = [...commandeActive.articles, ...panier];
+      const nouveauTotal = articlesMisAJour.reduce(
+        (sum, item) => sum + (item.prix * (item.quantite || 1)),
+        0
+      );
+
+      await mettreAJourCommande(commandeActive.id, {
+        articles: articlesMisAJour,
+        total: nouveauTotal,
+      });
+
+      commandeActive = { ...commandeActive, articles: articlesMisAJour, total: nouveauTotal };
+    } else {
+      // Créer une nouvelle commande
+      const nouvelleCommande = {
+        id: Date.now().toString(),
+        date: new Date().toISOString(),
+        articles: panier,
+        total,
+        statut: 'En attente de paiement',
+        adresseLivraison: {
+          adresse: 'Non renseignée',
+          codePostal: '',
+          ville: '',
+        },
+      };
+
+      await ajouterCommande(nouvelleCommande);
+      commandeActive = nouvelleCommande;
+    }
+
     viderPanier();
 
     Alert.alert(
@@ -43,7 +65,7 @@ export default function PanierScreen() {
         },
         {
           text: 'Payer maintenant',
-          onPress: () => navigation.navigate('Paiement', { commande: nouvelleCommande }),
+          onPress: () => navigation.navigate('Paiement', { commande: commandeActive }),
         },
       ],
       { cancelable: false }
@@ -94,7 +116,6 @@ export default function PanierScreen() {
           <Text style={styles.commanderText}>Commander</Text>
         </TouchableOpacity>
 
-        {/* 🔙 Bouton retour au catalogue (comme sur ProduitScreen) */}
         <TouchableOpacity onPress={() => navigation.goBack()} style={styles.retourBtn}>
           <Text style={styles.retourText}>← Retour au catalogue</Text>
         </TouchableOpacity>
@@ -151,8 +172,6 @@ const styles = StyleSheet.create({
     width: '100%',
   },
   commanderText: { color: '#fff', fontSize: 16, fontWeight: 'bold' },
-
-  // --- Bouton retour simple, comme sur les autres écrans ---
   retourBtn: { marginTop: 20 },
   retourText: { 
     color: '#2196F3', 

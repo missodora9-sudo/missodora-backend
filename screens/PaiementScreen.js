@@ -19,14 +19,19 @@ export default function PaiementScreen() {
   const { user, isGuest, loading: authLoading } = useAuth();
   const { confirmPayment } = useStripe();
 
+  // --- États pour formulaire ---
   const [formData, setFormData] = useState({ adresse: '', ville: '', codePostal: '' });
   const [loading, setLoading] = useState(false);
   const [cardDetails, setCardDetails] = useState(null);
+  const [codePromo, setCodePromo] = useState('');
+  const [reduction, setReduction] = useState(0);
+  const [verifyingPromo, setVerifyingPromo] = useState(false);
 
   const TVA = 0.2;
   const montantHT = commande?.total || 0;
   const montantTVA = montantHT * TVA;
   const totalTTC = montantHT * (1 + TVA);
+  const totalTTCAvecReduction = totalTTC * (1 - reduction / 100);
 
   useEffect(() => {
     if (authLoading) return;
@@ -42,9 +47,47 @@ export default function PaiementScreen() {
     }
   }, [user, isGuest, commande, authLoading]);
 
+  // --- Vérification code promo ---
+  const verifierCodePromo = async () => {
+    if (!codePromo.trim()) {
+      Alert.alert('Erreur', 'Veuillez entrer un code promo');
+      return;
+    }
+    setVerifyingPromo(true);
+    try {
+      const SERVER_URL = 'http://192.168.1.81:3000';
+      const response = await fetch(`${SERVER_URL}/verify-promo`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+        body: JSON.stringify({ code: codePromo }),
+      });
+      const responseText = await response.text();
+      if (!response.ok) throw new Error(`Erreur HTTP: ${response.status} - ${responseText}`);
+      const result = JSON.parse(responseText);
+      if (result.valid) {
+        setReduction(result.reduction);
+        Alert.alert('Code promo appliqué ✅', result.message);
+      } else {
+        setReduction(0);
+        Alert.alert('Code promo invalide ❌', result.message);
+      }
+    } catch (error) {
+      console.error('❌ Erreur vérification code promo:', error);
+      Alert.alert(
+        'Erreur de Connexion',
+        `Impossible de vérifier le code promo:\n${error.message}\nVérifiez que le serveur est démarré sur http://192.168.1.81:3000`
+      );
+    } finally {
+      setVerifyingPromo(false);
+    }
+  };
+
+  // --- Génération facture PDF (inchangé) ---
   const genererFacturePDF = async () => {
     const dateFacture = new Date().toLocaleDateString('fr-FR');
     const numeroFacture = `FAC-${commande.id}-${Date.now()}`;
+
+    // On peut fusionner les articles identiques si besoin, mais on garde le PDF tel quel
     const produitsHTML = (commande.articles || []).map((item, index) => `
       <tr style="${index % 2 === 0 ? 'background-color: #f8f9fa;' : 'background-color: #ffffff;'}">
         <td style="padding: 12px 8px; border-bottom: 1px solid #dee2e6;">${item.nom}</td>
@@ -111,7 +154,8 @@ export default function PaiementScreen() {
       <div class="totals">
         <div class="total-line"><span class="total-label">Sous-total HT:</span><span class="total-amount">${montantHT.toFixed(2)} €</span></div>
         <div class="total-line"><span class="total-label">TVA (20%):</span><span class="total-amount">${montantTVA.toFixed(2)} €</span></div>
-        <div class="total-line total-ttc"><span class="total-label">TOTAL TTC:</span><span class="total-amount">${totalTTC.toFixed(2)} €</span></div>
+        ${reduction > 0 ? `<div class="total-line"><span class="total-label">Réduction (${reduction}%):</span><span class="total-amount">-${(totalTTC * (reduction/100)).toFixed(2)} €</span></div>` : ''}
+        <div class="total-line total-ttc"><span class="total-label">TOTAL TTC:</span><span class="total-amount">${totalTTCAvecReduction.toFixed(2)} €</span></div>
       </div>
       <div class="thank-you">Merci pour votre confiance et à bientôt chez MissOdora !</div>
       <div class="footer">MissOdora - SAS au capital de 50 000 € - TVA FR 12 345678901<br>Facture électronique - Cette facture fait foi d'original</div>
@@ -162,10 +206,11 @@ export default function PaiementScreen() {
       const response = await fetch(`${SERVER_URL}/create-payment-intent`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ amount: totalTTC, currency: 'eur' }),
+        body: JSON.stringify({ amount: totalTTCAvecReduction, currency: 'eur' }),
       });
-      const { clientSecret, error: serverError } = await response.json();
-      if (serverError || !clientSecret) { setLoading(false); return; }
+      const responseText = await response.text();
+      if (!response.ok) throw new Error(`Erreur serveur: ${response.status} - ${responseText}`);
+      const { clientSecret } = JSON.parse(responseText);
 
       const { paymentIntent, error } = await confirmPayment(clientSecret, {
         paymentMethodType: 'Card',
@@ -178,18 +223,23 @@ export default function PaiementScreen() {
         },
       });
 
-      if (error) { Alert.alert("Erreur de paiement", error.message || "Une erreur est survenue."); }
-      else if (paymentIntent) {
+      if (error) {
+        Alert.alert("Erreur de paiement", error.message || "Une erreur est survenue.");
+      } else if (paymentIntent) {
         await mettreAJourCommande(commande.id, {
           statut: 'Payée',
           adresseLivraison: { ...formData },
-          totalTTC,
+          totalTTC: totalTTCAvecReduction,
           datePaiement: serverTimestamp(),
           stripePaymentIntentId: paymentIntent.id,
+          codePromo: codePromo || null,
+          reductionAppliquee: reduction,
         });
 
         setFormData({ adresse: '', ville: '', codePostal: '' });
         setCardDetails(null);
+        setCodePromo('');
+        setReduction(0);
 
         Alert.alert(
           "Paiement réussi ✅",
@@ -200,7 +250,10 @@ export default function PaiementScreen() {
           ]
         );
       }
-    } catch (err) { console.error(err); }
+    } catch (err) {
+      console.error('❌ Erreur paiement:', err);
+      Alert.alert("Erreur", "Une erreur est survenue lors du paiement.");
+    }
     setLoading(false);
   };
 
@@ -215,32 +268,86 @@ export default function PaiementScreen() {
       )}
 
       {!isGuest && (
-        <View style={styles.section}>
-          <Text style={styles.label}>Adresse de livraison</Text>
-          <TextInput style={styles.input} placeholder="Adresse complète" value={formData.adresse} onChangeText={text => setFormData({ ...formData, adresse: text })} />
-          <TextInput style={styles.input} placeholder="Ville" value={formData.ville} onChangeText={text => setFormData({ ...formData, ville: text })} />
-          <TextInput style={styles.input} placeholder="Code postal" keyboardType="numeric" value={formData.codePostal} onChangeText={text => setFormData({ ...formData, codePostal: text })} />
-        </View>
-      )}
+        <>
+          <View style={styles.section}>
+            <Text style={styles.label}>Adresse de livraison</Text>
+            <TextInput 
+              style={styles.input} 
+              placeholder="Adresse complète" 
+              value={formData.adresse} 
+              onChangeText={text => setFormData({ ...formData, adresse: text })} 
+            />
+            <TextInput 
+              style={styles.input} 
+              placeholder="Ville" 
+              value={formData.ville} 
+              onChangeText={text => setFormData({ ...formData, ville: text })} 
+            />
+            <TextInput 
+              style={styles.input} 
+              placeholder="Code postal" 
+              keyboardType="numeric" 
+              value={formData.codePostal} 
+              onChangeText={text => setFormData({ ...formData, codePostal: text })} 
+            />
+          </View>
 
-      {!isGuest && (
-        <View style={styles.section}>
-          <Text style={styles.label}>Carte bancaire</Text>
-          <CardField
-            postalCodeEnabled={false}
-            placeholder={{ number: '4242 4242 4242 4242' }}
-            cardStyle={{ backgroundColor: '#fff', textColor: '#000', borderWidth: 1, borderColor: '#ddd', borderRadius: 8 }}
-            style={{ width: '100%', height: 50, marginVertical: 20 }}
-            onCardChange={setCardDetails}
-          />
-        </View>
+          <View style={styles.section}>
+            <Text style={styles.label}>Carte bancaire</Text>
+            <CardField
+              postalCodeEnabled={false}
+              placeholder={{ number: '4242 4242 4242 4242' }}
+              cardStyle={{ backgroundColor: '#fff', textColor: '#000', borderWidth: 1, borderColor: '#ddd', borderRadius: 8 }}
+              style={{ width: '100%', height: 50, marginVertical: 20 }}
+              onCardChange={setCardDetails}
+            />
+          </View>
+
+          <View style={styles.section}>
+            <Text style={styles.label}>Code promo</Text>
+            <TextInput
+              style={styles.input}
+              placeholder="Entrez votre code promo"
+              value={codePromo}
+              onChangeText={setCodePromo}
+            />
+            <TouchableOpacity
+              style={[styles.promoButton, reduction > 0 && styles.promoButtonApplied, verifyingPromo && styles.buttonDisabled]}
+              onPress={verifierCodePromo}
+              disabled={verifyingPromo}
+            >
+              {verifyingPromo ? (
+                <ActivityIndicator color="#fff" size="small" />
+              ) : (
+                <Text style={styles.promoButtonText}>
+                  {reduction > 0 ? `Réduction ${reduction}% appliquée` : 'Appliquer le code promo'}
+                </Text>
+              )}
+            </TouchableOpacity>
+          </View>
+        </>
       )}
 
       <View style={styles.section}>
         <Text style={styles.label}>Résumé de la commande</Text>
-        <View style={styles.summaryRow}><Text>Sous-total HT:</Text><Text>{montantHT.toFixed(2)} €</Text></View>
-        <View style={styles.summaryRow}><Text>TVA (20%):</Text><Text>{montantTVA.toFixed(2)} €</Text></View>
-        <View style={[styles.summaryRow, styles.totalRow]}><Text style={styles.totalLabel}>Total TTC:</Text><Text style={styles.totalAmount}>{totalTTC.toFixed(2)} €</Text></View>
+        <View style={styles.summaryRow}>
+          <Text>Sous-total HT:</Text>
+          <Text>{montantHT.toFixed(2)} €</Text>
+        </View>
+        <View style={styles.summaryRow}>
+          <Text>TVA (20%):</Text>
+          <Text>{montantTVA.toFixed(2)} €</Text>
+        </View>
+        {reduction > 0 && (
+          <View style={styles.summaryRow}>
+            <Text style={{color: '#27ae60', fontWeight: 'bold'}}>Réduction ({reduction}%):</Text>
+            <Text style={{color: '#27ae60', fontWeight: 'bold'}}>-{(totalTTC * (reduction/100)).toFixed(2)} €</Text>
+          </View>
+        )}
+        <View style={[styles.summaryRow, styles.totalRow]}>
+          <Text style={styles.totalLabel}>Total TTC:</Text>
+          <Text style={styles.totalAmount}>{totalTTCAvecReduction.toFixed(2)} €</Text>
+        </View>
       </View>
 
       <TouchableOpacity
@@ -248,8 +355,14 @@ export default function PaiementScreen() {
         onPress={handlePaiement}
         disabled={loading || (!isGuest && !cardDetails?.complete)}
       >
-        {loading ? <ActivityIndicator color="#fff" /> : (
-          isGuest ? <Text style={styles.buttonText}>Créer un compte pour payer</Text> : <Text style={styles.buttonText}>Payer {totalTTC.toFixed(2)} €</Text>
+        {loading ? (
+          <ActivityIndicator color="#fff" />
+        ) : (
+          isGuest ? (
+            <Text style={styles.buttonText}>Créer un compte pour payer</Text>
+          ) : (
+            <Text style={styles.buttonText}>Payer {totalTTCAvecReduction.toFixed(2)} €</Text>
+          )
         )}
       </TouchableOpacity>
 
@@ -278,6 +391,9 @@ const styles = StyleSheet.create({
   button: { backgroundColor: '#4c669f', padding: 18, borderRadius: 12, alignItems: 'center', marginBottom: 20, shadowColor: '#000', shadowOffset: { width: 0, height: 3 }, shadowOpacity: 0.3, shadowRadius: 6, elevation: 6 },
   buttonDisabled: { backgroundColor: '#bdc3c7' },
   buttonText: { color: '#fff', fontWeight: 'bold', fontSize: 18 },
+  promoButton: { backgroundColor: '#27ae60', padding: 15, borderRadius: 8, alignItems: 'center' },
+  promoButtonApplied: { backgroundColor: '#2ecc71' },
+  promoButtonText: { color: '#fff', fontWeight: 'bold', fontSize: 16 },
   securityInfo: { backgroundColor: '#e7f3ff', padding: 15, borderRadius: 8, alignItems: 'center', marginBottom: 30 },
   securityText: { fontWeight: 'bold', color: '#0066cc', marginBottom: 5 },
   securitySubText: { fontSize: 12, color: '#666', textAlign: 'center' }

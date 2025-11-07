@@ -1,6 +1,7 @@
-import React from "react";
-import { View, Text, FlatList, Image, TouchableOpacity, StyleSheet } from "react-native";
-import { useAuth } from "../context/AuthContext";
+import React, { useState, useRef } from "react";
+import { 
+  View, Text, FlatList, Image, TouchableOpacity, StyleSheet, TextInput, Animated 
+} from "react-native";
 
 const marques = [
   { id: "1", nom: "Versace", image: require("../assets/images/parfum_a.png") },
@@ -12,144 +13,99 @@ const marques = [
 ];
 
 export default function MarquesScreen({ navigation }) {
-  const { user, logout } = useAuth();
+  const [recherche, setRecherche] = useState("");
+  const fadeAnim = useRef(new Animated.Value(1)).current;
 
-  const handleLogout = () => {
-    console.log("🚪 Déconnexion depuis MarquesScreen");
-    logout();
+  const marquesFiltrees = marques.filter(m =>
+    m.nom.toLowerCase().includes(recherche.toLowerCase())
+  );
+
+  // Animation fade lors de la recherche
+  const handleSearchChange = (text) => {
+    Animated.timing(fadeAnim, {
+      toValue: 0,
+      duration: 150,
+      useNativeDriver: true,
+    }).start(() => {
+      setRecherche(text);
+      Animated.timing(fadeAnim, {
+        toValue: 1,
+        duration: 250,
+        useNativeDriver: true,
+      }).start();
+    });
   };
 
   return (
     <View style={styles.container}>
-      {/* En-tête avec roue dentée conditionnelle, bienvenue et bouton déconnexion */}
-      <View style={styles.header}>
-        <View style={styles.welcomeContainer}>
-          <View style={styles.bienvenueRow}>
-            {/* Afficher la roue dentée seulement si l'utilisateur n'est pas invité */}
-            {user && !user.isGuest && (
-              <TouchableOpacity 
-                style={styles.settingsButton} 
-                onPress={() => navigation.navigate('Profil')} // écran Profil
+      {/* Titre simple */}
+      <Text style={styles.titre}>Nos Marques</Text>
+
+      {/* Barre de recherche */}
+      <TextInput
+        style={styles.rechercheInput}
+        placeholder="🔍 Rechercher une marque..."
+        value={recherche}
+        onChangeText={handleSearchChange}
+        clearButtonMode="while-editing"
+      />
+
+      {/* Liste animée des marques */}
+      <Animated.View style={{ flex: 1, opacity: fadeAnim }}>
+        {marquesFiltrees.length === 0 ? (
+          <Text style={styles.noResult}>Aucune marque trouvée 😕</Text>
+        ) : (
+          <FlatList
+            data={marquesFiltrees}
+            keyExtractor={(item) => item.id}
+            numColumns={2}
+            contentContainerStyle={{ paddingBottom: 30 }}
+            renderItem={({ item }) => (
+              <TouchableOpacity
+                style={styles.carte}
+                onPress={() => navigation.navigate("Catalogue", { marque: item.nom })}
               >
-                <Text style={styles.settingsIcon}>⚙️</Text>
+                <Image source={item.image} style={styles.image} />
+                <Text style={styles.nom}>{item.nom}</Text>
               </TouchableOpacity>
             )}
-
-            <Text style={styles.bienvenue}>Bonjour {user?.prenom || 'invité'} ! 👋</Text>
-          </View>
-          <Text style={styles.email}>{user?.email || ''}</Text>
-        </View>
-        
-        {/* Bouton Déconnexion */}
-        <TouchableOpacity 
-          style={styles.logoutButton}
-          onPress={handleLogout}
-        >
-          <Text style={styles.logoutButtonText}>Déconnexion</Text>
-        </TouchableOpacity>
-      </View>
-
-      <Text style={styles.titre}>Nos Marques</Text>
-      
-      <FlatList
-        data={marques}
-        keyExtractor={(item) => item.id}
-        numColumns={2}
-        renderItem={({ item }) => (
-          <TouchableOpacity
-            style={styles.carte}
-            onPress={() => navigation.navigate("Catalogue", { marque: item.nom })}
-          >
-            <Image source={item.image} style={styles.image} />
-            <Text style={styles.nom}>{item.nom}</Text>
-          </TouchableOpacity>
+          />
         )}
-      />
+      </Animated.View>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { 
-    flex: 1, 
-    backgroundColor: "#fff", 
-    padding: 10 
-  },
-  header: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginTop: 10,
-    marginBottom: 10,
-    paddingHorizontal: 5,
-  },
-  welcomeContainer: {
-    flex: 1,
-  },
-  bienvenueRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  settingsButton: {
-    marginRight: 8, // espace entre la roue dentée et le texte
-  },
-  settingsIcon: {
-    fontSize: 20,
-  },
-  bienvenue: { 
-    fontSize: 18, 
-    fontWeight: "bold", 
-    color: "#333"
-  },
-  email: {
-    fontSize: 14,
-    color: "#666",
-    marginTop: 2,
-  },
-  logoutButton: {
-    backgroundColor: "#FF6B6B",
-    paddingHorizontal: 15,
-    paddingVertical: 8,
-    borderRadius: 20,
+  container: { flex: 1, backgroundColor: "#fff", padding: 10 },
+  titre: { fontSize: 24, fontWeight: "bold", textAlign: "center", marginVertical: 20, color: "#333" },
+  rechercheInput: {
     borderWidth: 1,
-    borderColor: "#FF6B6B",
-  },
-  logoutButtonText: {
-    color: "#fff",
-    fontSize: 14,
-    fontWeight: "600",
-  },
-  titre: { 
-    fontSize: 24, 
-    fontWeight: "bold", 
-    textAlign: "center", 
-    marginVertical: 20,
-    color: "#333"
+    borderColor: "#ccc",
+    borderRadius: 20,
+    padding: 12,
+    marginBottom: 15,
+    fontSize: 16,
+    backgroundColor: "#f2f2f2",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 3,
   },
   carte: { 
     flex: 1, 
     margin: 10, 
     alignItems: "center",
-    backgroundColor: "#f9f9f9",
+    backgroundColor: "#fefefe",
     padding: 15,
-    borderRadius: 10,
-    elevation: 2,
+    borderRadius: 20,
+    elevation: 4,
     shadowColor: "#000",
-    shadowOffset: { width: 0, height: 1 },
+    shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
-    shadowRadius: 3,
+    shadowRadius: 4,
   },
-  image: { 
-    width: 120, 
-    height: 120, 
-    borderRadius: 10,
-    resizeMode: "contain"
-  },
-  nom: { 
-    marginTop: 10, 
-    fontSize: 16, 
-    fontWeight: "600",
-    color: "#333",
-    textAlign: "center"
-  },
+  image: { width: 130, height: 130, borderRadius: 15, resizeMode: "contain" },
+  nom: { marginTop: 10, fontSize: 16, fontWeight: "600", color: "#333", textAlign: "center" },
+  noResult: { textAlign: 'center', marginTop: 50, fontSize: 16, color: '#999' },
 });

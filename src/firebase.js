@@ -21,7 +21,7 @@ const app = !getApps().length ? initializeApp(firebaseConfig) : getApps()[0];
 // --- Firestore ---
 const db = getFirestore(app);
 
-// --- Auth avec persistance React Native ---
+// --- Auth avec persistance React Native (sans Dynamic Links) ---
 let auth;
 try {
   auth = initializeAuth(app, {
@@ -31,4 +31,35 @@ try {
   console.warn("⚠️ Firebase Auth est déjà initialisé :", e);
 }
 
-export { app, db, auth };
+// --- Exemple de fonctions pour Email/Password ---
+import { createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut } from "firebase/auth";
+
+const registerWithEmail = async (email, password) => {
+  try {
+    const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+    return userCredential.user;
+  } catch (error) {
+    console.error("Erreur lors de l'inscription :", error);
+    throw error;
+  }
+};
+
+const loginWithEmail = async (email, password) => {
+  try {
+    const userCredential = await signInWithEmailAndPassword(auth, email, password);
+    return userCredential.user;
+  } catch (error) {
+    console.error("Erreur lors de la connexion :", error);
+    throw error;
+  }
+};
+
+const logout = async () => {
+  try {
+    await signOut(auth);
+  } catch (error) {
+    console.error("Erreur lors de la déconnexion :", error);
+  }
+};
+
+export { app, db, auth, registerWithEmail, loginWithEmail, logout };

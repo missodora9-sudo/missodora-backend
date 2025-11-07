@@ -1,15 +1,16 @@
 import React from 'react';
+import { View, Text, TouchableOpacity, StyleSheet, ActivityIndicator } from 'react-native';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
-import { View, Text, TouchableOpacity, StyleSheet, ActivityIndicator } from 'react-native';
 import { StripeProvider } from '@stripe/stripe-react-native';
-import { LinearGradient } from 'expo-linear-gradient';
 
+// Contexts
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { PanierProvider, usePanier } from './context/PanierContext';
 import { CommandesProvider, useCommandes } from './context/CommandesContext';
 import CommandesResetWatcher from './context/CommandesResetWatcher';
 
+// Screens
 import BienvenueScreen from './screens/BienvenueScreen';
 import RegisterScreen from './src/screens/auth/RegisterScreen';
 import LoginScreen from './src/screens/auth/LoginScreen';
@@ -22,26 +23,16 @@ import ProduitScreen from './screens/ProduitScreen';
 import DetailCommandeScreen from './screens/DetailCommandeScreen';
 import CloneCatalogueScreen from './screens/CloneCatalogueScreen';
 import ProfilEditScreen from './screens/ProfilEditScreen';
+import VenteFlashScreen from './screens/VenteFlashScreen';
+import DiverseScreen from './screens/DiverseScreen';
+import AccueilScreen from './screens/AccueilScreen';
+
+// Components
+import RetourAccueilButton from './components/RetourAccueilButton';
 
 const Stack = createNativeStackNavigator();
 
-// --- Bouton Retour aux Marques ---
-function RetourMarquesButton({ navigation }) {
-  return (
-    <TouchableOpacity onPress={() => navigation.navigate('Marques')}>
-      <LinearGradient
-        colors={['#4c669f', '#3b5998', '#192f6a']}
-        start={[0, 0]}
-        end={[1, 1]}
-        style={styles.retourButton}
-      >
-        <Text style={styles.retourText}>← Marques</Text>
-      </LinearGradient>
-    </TouchableOpacity>
-  );
-}
-
-// --- Icônes Header ---
+// --- Header Icons ---
 function HeaderIcons({ navigation }) {
   const { getCommandesEnAttente } = useCommandes();
   const { panier } = usePanier();
@@ -51,7 +42,13 @@ function HeaderIcons({ navigation }) {
 
   return (
     <View style={styles.headerIconsContainer}>
-      {/* Bouton profil supprimé, la roue dentée gère cette fonction ailleurs */}
+      <TouchableOpacity style={styles.icon} onPress={() => navigation.navigate('VenteFlash')}>
+        <Text style={styles.iconText}>⚡</Text>
+      </TouchableOpacity>
+
+      <TouchableOpacity style={styles.icon} onPress={() => navigation.navigate('Diverse')}>
+        <Text style={styles.iconText}>🛍</Text>
+      </TouchableOpacity>
 
       <TouchableOpacity style={styles.icon} onPress={() => navigation.navigate('MesCommandes')}>
         <Text style={styles.iconText}>📦</Text>
@@ -76,109 +73,145 @@ function HeaderIcons({ navigation }) {
   );
 }
 
-// --- Stack Auth ---
+// --- Auth Stack ---
 function AuthStack() {
   return (
     <Stack.Navigator screenOptions={{ headerShown: false }}>
       <Stack.Screen name="Bienvenue" component={BienvenueScreen} />
-      <Stack.Screen name="Register" component={RegisterScreen} />
       <Stack.Screen name="Login" component={LoginScreen} />
+      <Stack.Screen name="Register" component={RegisterScreen} options={{ headerShown: true, title: 'Inscription' }} />
     </Stack.Navigator>
   );
 }
 
-// --- Stack App ---
+// --- App Stack ---
 function AppStack() {
   return (
     <Stack.Navigator>
+      <Stack.Screen
+        name="Accueil"
+        component={AccueilScreen}
+        options={({ navigation }) => ({
+          title: 'Accueil',
+          headerRight: () => <HeaderIcons navigation={navigation} />,
+        })}
+      />
+
       <Stack.Screen
         name="Marques"
         component={MarquesScreen}
         options={({ navigation }) => ({
           title: 'Nos Marques',
+          headerLeft: () => <RetourAccueilButton navigation={navigation} />,
           headerRight: () => <HeaderIcons navigation={navigation} />,
         })}
       />
+
       <Stack.Screen
         name="Catalogue"
         component={CatalogueScreen}
         options={({ navigation }) => ({
           title: 'Catalogue',
-          headerLeft: () => <RetourMarquesButton navigation={navigation} />,
+          headerLeft: () => <RetourAccueilButton navigation={navigation} />,
           headerRight: () => <HeaderIcons navigation={navigation} />,
         })}
       />
+
+      <Stack.Screen
+        name="VenteFlash"
+        component={VenteFlashScreen}
+        options={({ navigation }) => ({
+          title: 'Vente Flash',
+          headerLeft: () => <RetourAccueilButton navigation={navigation} />,
+          headerRight: () => <HeaderIcons navigation={navigation} />,
+        })}
+      />
+
+      <Stack.Screen
+        name="Diverse"
+        component={DiverseScreen}
+        options={({ navigation }) => ({
+          title: 'Divers',
+          headerLeft: () => <RetourAccueilButton navigation={navigation} />,
+          headerRight: () => <HeaderIcons navigation={navigation} />,
+        })}
+      />
+
       <Stack.Screen
         name="Panier"
         component={PanierScreen}
         options={({ navigation }) => ({
           title: 'Mon Panier',
-          headerLeft: () => <RetourMarquesButton navigation={navigation} />,
+          headerLeft: () => <RetourAccueilButton navigation={navigation} />,
           headerRight: () => <HeaderIcons navigation={navigation} />,
         })}
       />
+
       <Stack.Screen
         name="Paiement"
         component={PaiementScreen}
         options={({ navigation }) => ({
           title: 'Paiement Sécurisé',
-          headerLeft: () => <RetourMarquesButton navigation={navigation} />,
+          headerLeft: () => <RetourAccueilButton navigation={navigation} />,
           headerRight: () => <HeaderIcons navigation={navigation} />,
         })}
       />
+
       <Stack.Screen
         name="MesCommandes"
         component={MesCommandesScreen}
         options={({ navigation }) => ({
           title: 'Mes Commandes',
-          headerLeft: () => <RetourMarquesButton navigation={navigation} />,
+          headerLeft: () => <RetourAccueilButton navigation={navigation} />,
           headerRight: () => <HeaderIcons navigation={navigation} />,
         })}
       />
+
       <Stack.Screen
         name="Produit"
         component={ProduitScreen}
         options={({ navigation }) => ({
           title: 'Détails du produit',
-          headerLeft: () => <RetourMarquesButton navigation={navigation} />,
+          headerLeft: () => <RetourAccueilButton navigation={navigation} />,
           headerRight: () => <HeaderIcons navigation={navigation} />,
         })}
       />
+
       <Stack.Screen
         name="DetailCommande"
         component={DetailCommandeScreen}
         options={({ navigation }) => ({
           title: 'Détail de commande',
-          headerLeft: () => <RetourMarquesButton navigation={navigation} />,
+          headerLeft: () => <RetourAccueilButton navigation={navigation} />,
           headerRight: () => <HeaderIcons navigation={navigation} />,
         })}
       />
+
       <Stack.Screen
         name="CloneCatalogue"
         component={CloneCatalogueScreen}
         options={({ navigation }) => ({
           title: 'Catalogue',
-          headerLeft: () => <RetourMarquesButton navigation={navigation} />,
+          headerLeft: () => <RetourAccueilButton navigation={navigation} />,
           headerRight: () => <HeaderIcons navigation={navigation} />,
         })}
       />
+
       <Stack.Screen
         name="Profil"
         component={ProfilEditScreen}
         options={({ navigation }) => ({
           title: 'Mon Profil',
-          headerLeft: () => <RetourMarquesButton navigation={navigation} />,
+          headerLeft: () => <RetourAccueilButton navigation={navigation} />,
           headerRight: () => <HeaderIcons navigation={navigation} />,
         })}
       />
+
+      {/* 🔹 Ajout de Register ici pour permettre navigation depuis Panier */}
       <Stack.Screen
         name="Register"
         component={RegisterScreen}
-        options={({ navigation }) => ({
-          title: 'Créer un compte',
-          headerLeft: () => <RetourMarquesButton navigation={navigation} />,
-          headerRight: () => <HeaderIcons navigation={navigation} />,
-        })}
+        options={{ headerShown: true, title: 'Créer un compte' }}
       />
     </Stack.Navigator>
   );
@@ -200,7 +233,7 @@ function RootNavigator() {
   return user ? <AppStack /> : <AuthStack />;
 }
 
-// --- AppContent ---
+// --- App Content ---
 function AppContent() {
   const { user } = useAuth();
 
@@ -216,7 +249,7 @@ function AppContent() {
   );
 }
 
-// --- App principal ---
+// --- App Principal ---
 export default function App() {
   return (
     <StripeProvider
@@ -233,64 +266,15 @@ export default function App() {
 
 // --- Styles ---
 const styles = StyleSheet.create({
-  headerIconsContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginRight: 10,
-  },
-  icon: {
-    marginLeft: 15,
-    position: 'relative',
-    padding: 8,
-  },
-  iconText: {
-    fontSize: 20,
-  },
-  badge: {
-    position: 'absolute',
-    top: -5,
-    right: -5,
-    backgroundColor: '#ff3b30',
-    borderRadius: 10,
-    width: 20,
-    height: 20,
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: '#fff',
-  },
-  badgeCommandes: {
-    backgroundColor: '#ff9500',
-  },
-  badgePanier: {
-    backgroundColor: '#ff3b30',
-  },
-  badgeText: {
-    color: '#fff',
-    fontSize: 12,
-    fontWeight: 'bold',
-  },
-  retourButton: {
-    marginLeft: 10,
-    borderRadius: 20,
-    paddingHorizontal: 14,
-    paddingVertical: 6,
-    elevation: 2,
-  },
-  retourText: {
-    color: '#fff',
-    fontWeight: 'bold',
-    fontSize: 14,
-  },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: '#f5f5f5',
-  },
-  loadingText: {
-    marginTop: 10,
-    fontSize: 16,
-    color: '#4c669f',
-  },
+  headerIconsContainer: { flexDirection: 'row', alignItems: 'center', marginRight: 10 },
+  icon: { marginLeft: 15, position: 'relative', padding: 8 },
+  iconText: { fontSize: 20 },
+  badge: { position: 'absolute', top: -5, right: -5, borderRadius: 10, width: 20, height: 20, justifyContent: 'center', alignItems: 'center', borderWidth: 1, borderColor: '#fff' },
+  badgeCommandes: { backgroundColor: '#ff9500' },
+  badgePanier: { backgroundColor: '#ff3b30' },
+  badgeText: { color: '#fff', fontSize: 12, fontWeight: 'bold' },
+  retourButton: { marginLeft: 10, borderRadius: 20, paddingHorizontal: 14, paddingVertical: 6, elevation: 2 },
+  retourText: { color: '#fff', fontWeight: 'bold', fontSize: 14 },
+  loadingContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#f5f5f5' },
+  loadingText: { marginTop: 10, fontSize: 16, color: '#4c669f' },
 });
